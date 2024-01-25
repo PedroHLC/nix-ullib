@@ -8,7 +8,7 @@ rec {
   "==" = a: b: a == b;
   "!=" = a: b: a != b;
   ">" = a: b: a > b;
-  "<" = a: b: a < b;
+  "<" = builtins.lessThan;
   ">=" = a: b: a >= b;
   "<=" = a: b: a <= b;
 
@@ -86,6 +86,8 @@ rec {
       else
         insert name new attr;
 
+    getFromMany = name: xs: builtins.catAttrs name xs;
+
     union = new: prev: prev // new;
     updateFull = op: prev: prev // (op prev);
 
@@ -150,12 +152,7 @@ rec {
           (toList prev)
         );
 
-    intersect = attrA: attrB:
-      builtins.listToAttrs
-        (builtins.filter
-          ({ name, value }: attrB ? "${name}")
-          (toList attrA)
-        );
+    intersect = attrA: attrB: builtins.intersectAttrs attrB attrA;
 
     diff = attrA: attrB:
       builtins.listToAttrs
@@ -184,6 +181,9 @@ rec {
         )
         init
         (builtins.attrNames (attrB // attrA));
+
+    # op => (name: values: newMergedValue)
+    zipWith = op: xs: builtins.zipAttrsWith op xs;
   };
 
   bitwise = {
@@ -196,6 +196,9 @@ rec {
   list = rec {
     empty = [ ];
     singleton = x: [ x ];
+
+    fromIndex = op: len: builtins.genList op len;
+    fromClosure = args: len: builtins.genList args len;
 
     inherit (builtins) all any concatMap filter head length map partition tail;
 
@@ -345,6 +348,9 @@ rec {
       builtins.genList (i: builtins.elemAt xs (i + offset)) n;
     drop = n: xs: builtins.genList (i: builtins.elemAt xs (n + i)) (builtins.length xs - n);
     dropLast = n: xs: builtins.genList (builtins.elemAt xs) (builtins.length xs - n);
+
+    # op => (item: patternFromItem)
+    groupBy = op: xs: builtins.groupBy op xs;
   };
 
   # This deserves a UTF-8 refactor if something as https://github.com/figsoda/utf8 gets upstreamed
@@ -559,6 +565,11 @@ rec {
       builtins.substring toDropLeft
         (builtins.stringLength prev - toDropLeft - toDropRight)
         prev;
+
+    toHexMD5 = builtins.hashString "md5";
+    toHexSHA1 = builtins.hashString "sha1";
+    toHexSHA256 = builtins.hashString "sha256";
+    toHexSHA512 = builtins.hashString "sha512";
   };
 
   ssot = {
@@ -569,7 +580,80 @@ rec {
   };
 
   type = {
-    inherit (builtins) isAttrs isBool isFloat isFunction isInt isNull isList isPath isString;
+    inherit (builtins)
+      isAttrs
+      isBool
+      isFloat
+      isFunction
+      isInt
+      isList
+      isNull
+      isPath
+      isString;
     of = x: builtins.typeOf x;
+  };
+
+  eval = {
+    inherit (builtins)
+      abort
+      deepSeq
+      functionArgs
+      seq
+      trace;
+    try = builtins.tryEval;
+  };
+
+  drv = {
+    inherit (builtins)
+      filterSource
+      parseDrvName
+      placeholder
+      storePath;
+  };
+
+  codecs = {
+    inherit (builtins)
+      fromJSON
+      toFile
+      toJSON
+      toPath
+      toString
+      toXML;
+  };
+
+  io = {
+    inherit (builtins)
+      fetchClosure
+      fetchGit
+      fetchTarball
+      readDir
+      readFile
+      import
+      pathExists;
+    fileHexMD5 = builtins.hashFile "md5";
+    fileHexSHA1 = builtins.hashFile "sha1";
+    fileHexSHA256 = builtins.hashFile "sha256";
+    fileHexSHA512 = builtins.hashFile "sha512";
+    importFlake = builtins.getFlake;
+    getEnv = builtins.getEnv;
+    fetchURL = builtins.fetchurl;
+  };
+
+  path = {
+    inherit (builtins)
+      baseNameOf
+      dirOf;
+    build = builtins.path;
+  };
+
+  semVer = {
+    compare = builtins.compareVersions;
+    fromString = builtins.splitVersion;
+  };
+
+  regex = {
+    inherit (builtins)
+      match
+      split;
   };
 }
