@@ -1,11 +1,73 @@
 rec {
+  "+" = builtins.add;
+  "-" = builtins.sub;
+  "*" = builtins.mul;
+  "/" = builtins.div;
+  "^" = _: _: throw "Exponential is missing in Nix";
+
+  "==" = a: b: a == b;
+  "!=" = a: b: a != b;
+  ">" = a: b: a > b;
+  "<" = a: b: a < b;
+  ">=" = a: b: a >= b;
+  "<=" = a: b: a <= b;
+
+  "!" = x: !x;
+  "&&" = a: b: a && b;
+  "||" = a: b: a || b;
+  xor = a: b: a != b && (a || b);
+
+  max = a: b: if b > a then b else a;
+  min = a: b: if b < a then b else a;
+  clamp = left: right: x:
+    if x < left then left
+    else if x > right then right
+    else x;
+
+  toFloat = x: x * 1.0;
+
   pair = name: value:
     { inherit name value; };
 
   swap = op: a: b: op b a;
 
-  max = a: b: if b > a then b else a;
-  min = a: b: if b < a then b else a;
+  identity = x: x;
+  always = x: _: x;
+
+  "<|" = fn: a: fn a;
+  "|>" = a: fn: fn a;
+  "<<" = fnB: fnA: a:
+    fnB (fnA a);
+  ">>" = fnA: fnB: a:
+    fnB (fnA a);
+
+  math = rec {
+    inherit (builtins) floor;
+    ceiling = builtins.ceil;
+    truncate = x:
+      if x >= 0 then builtins.floor x
+      else builtins.ceil x;
+    round = _: throw "Round is missing in Nix";
+
+    floatDiv = a: b:
+      if builtins.isInt a then (toFloat a) / b
+      else builtins.div a b;
+    integerDiv = a: b:
+      if builtins.isFloat a then (truncate a) / b
+      else builtins.div a b;
+
+    # https://web.archive.org/web/20240125182710/https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/divmodnote-letter.pdf
+    modBy = modulus: x:
+      let answer = x - (integerDiv x modulus) * modulus;
+      in
+      if ((answer > 0 && modulus < 0) || (answer < 0 && modulus > 0))
+      then answer + modulus
+      else answer;
+    remainderBy = modulus: x: x - (integerDiv x modulus) * modulus;
+
+    negate = x: x * (-1);
+    abs = x: if x < 0 then x * (-1) else x;
+  };
 
   attrset = rec {
     empty = { };
@@ -122,6 +184,13 @@ rec {
         )
         init
         (builtins.attrNames (attrB // attrA));
+  };
+
+  bitwise = {
+    and = builtins.bitAnd;
+    or = builtins.bitOr;
+    xor = builtins.bitXor;
+    complement = builtins.bitNot;
   };
 
   list = rec {
