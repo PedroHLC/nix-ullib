@@ -86,7 +86,7 @@ rec {
       else
         insert name new attr;
 
-    getFromMany = name: xs: builtins.catAttrs name xs;
+    getFromMany = builtins.catAttrs;
 
     union = new: prev: prev // new;
     updateFull = op: prev: prev // (op prev);
@@ -122,11 +122,11 @@ rec {
     member = name: attr: attr ? "${name}";
     size = attr: builtins.length (builtins.attrNames attr);
 
-    names = attr: builtins.attrNames attr;
-    values = attr: builtins.attrValues attr;
+    names = builtins.attrNames;
+    values = builtins.attrValues;
 
     toList = attr: builtins.map (name: pair name attr.${name}) (builtins.attrNames attr);
-    fromList = xs: builtins.listToAttrs xs;
+    fromList = builtins.listToAttrs;
 
     # op => (name: value: newValue)
     map = op: prev:
@@ -146,7 +146,7 @@ rec {
     # op => (name: value: Bool)
     partition = op: prev:
       attrset.map
-        (_: val: builtins.listToAttrs val)
+        (_: builtins.listToAttrs)
         (builtins.partition
           ({ name, value }: op name value)
           (toList prev)
@@ -183,22 +183,26 @@ rec {
         (builtins.attrNames (attrB // attrA));
 
     # op => (name: values: newMergedValue)
-    zipWith = op: xs: builtins.zipAttrsWith op xs;
+    zipWith = builtins.zipAttrsWith;
   };
 
   bitwise = {
     and = builtins.bitAnd;
     or = builtins.bitOr;
     xor = builtins.bitXor;
-    complement = builtins.bitNot;
+    # taken from nixpkgs
+    complement = builtins.sub (-1);
   };
 
   list = rec {
     empty = [ ];
     singleton = x: [ x ];
 
-    fromIndex = op: len: builtins.genList op len;
-    fromClosure = args: len: builtins.genList args len;
+    get = n: xs: builtins.elemAt xs n;
+    get' = builtins.elemAt;
+
+    fromIndex = builtins.genList;
+    fromClosure = builtins.genList;
 
     inherit (builtins) all any concatMap filter head length map partition tail;
 
@@ -272,7 +276,7 @@ rec {
         (n: builtins.elemAt xs (tailIx - n))
         len;
 
-    member = x: xs: builtins.elem x xs;
+    member = builtins.elem;
 
     maximum = xs:
       if xs == [ ] then null
@@ -311,9 +315,9 @@ rec {
     append = new: prev: prev ++ new;
     prepend = new: prev: new ++ prev;
 
-    concat = xss: builtins.concatLists xss;
+    concat = builtins.concatLists;
 
-    intersperse = sep: xs: builtins.concatMap (x: [ x sep ]) xs;
+    intersperse = sep: builtins.concatMap (x: [ x sep ]);
 
     map2 = op: xs: ys:
       builtins.genList
@@ -335,9 +339,9 @@ rec {
         (n: op (builtins.elemAt xs n) (builtins.elemAt ys n) (builtins.elemAt zs n) (builtins.elemAt ws n) (builtins.elemAt ks n))
         (minimun [ (builtins.length xs) (builtins.length ys) (builtins.length zs) (builtins.length ws) (builtins.length ks) ]);
 
-    sort = xs: builtins.sort builtins.lessThan xs;
-    sortBy = name: xs: builtins.sort (a: b: (attrset.get name a) < (attrset.get name b)) xs;
-    sortWith = op: xs: builtins.sort op xs;
+    sort = builtins.sort builtins.lessThan;
+    sortBy = name: builtins.sort (a: b: (attrset.get name a) < (attrset.get name b));
+    sortWith = builtins.sort;
 
     isEmpty = xs: xs == [ ];
 
@@ -350,7 +354,7 @@ rec {
     dropLast = n: xs: builtins.genList (builtins.elemAt xs) (builtins.length xs - n);
 
     # op => (item: patternFromItem)
-    groupBy = op: xs: builtins.groupBy op xs;
+    groupBy = builtins.groupBy;
   };
 
   # This deserves a UTF-8 refactor if something as https://github.com/figsoda/utf8 gets upstreamed
@@ -358,13 +362,13 @@ rec {
     empty = "";
     isEmpty = str: str == "";
 
-    length = str: builtins.stringLength str;
+    length = builtins.stringLength;
 
     toList = str:
       let len = builtins.stringLength str;
       in
       builtins.genList (n: builtins.substring n 1 str) len;
-    fromList = xs: builtins.concatStringsSep "" xs;
+    fromList = builtins.concatStringsSep "";
 
     reverse = prev:
       let
@@ -379,11 +383,11 @@ rec {
       else if n == 1 then x
       else builtins.concatStringsSep "" (builtins.genList (_: x) n);
 
-    replace = from: to: prev: builtins.replaceStrings [ from ] [ to ] prev;
-    replaceMany = allFrom: allTo: prev: builtins.replaceStrings allFrom allTo prev;
+    replace = from: to: builtins.replaceStrings [ from ] [ to ];
+    replaceMany = builtins.replaceStrings;
 
     append = new: prev: prev + new;
-    concat = xs: builtins.concatStringsSep "" xs;
+    concat = builtins.concatStringsSep "";
 
     # taken from nixpkgs
     escape = list: builtins.replaceStrings list (builtins.map (c: "\\${c}") list);
@@ -395,7 +399,7 @@ rec {
       in
       builtins.filter builtins.isString regexResult;
 
-    join = sep: xs: builtins.concatStringsSep sep xs;
+    join = builtins.concatStringsSep;
 
     words = str:
       let
@@ -426,8 +430,9 @@ rec {
           newList = builtins.genList (n: builtins.substring (tailIx - n) 1 str) len';
         in
         builtins.concatStringsSep "" newList;
+    slice' = builtins.substring;
 
-    left = n: prev: builtins.substring 0 n prev;
+    left = builtins.substring 0;
     right = n: prev:
       let len = builtins.stringLength prev;
       in
@@ -499,8 +504,8 @@ rec {
       if builtins.isFloat primitive then builtins.toJSON primitive
       else throw "${builtins.typeOf primitive} is not a float.";
 
-    toUpper = prev: builtins.replaceStrings ssot.asciiLowerChars ssot.asciiUpperChars prev;
-    toLower = prev: builtins.replaceStrings ssot.asciiUpperChars ssot.asciiLowerChars prev;
+    toUpper = builtins.replaceStrings ssot.asciiLowerChars ssot.asciiUpperChars;
+    toLower = builtins.replaceStrings ssot.asciiUpperChars ssot.asciiLowerChars;
 
     padLeft = n: filler: prev:
       let len = builtins.stringLength prev;
@@ -575,7 +580,9 @@ rec {
   ssot = {
     # taken from nixpkgs
     regexSpecialCharacters = string.toList "\\[{()^$?*+|.";
+    # taken from nixpkgs
     asciiLowerChars = string.toList "abcdefghijklmnopqrstuvwxyz";
+    # taken from nixpkgs
     asciiUpperChars = string.toList "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   };
 
@@ -590,7 +597,7 @@ rec {
       isNull
       isPath
       isString;
-    of = x: builtins.typeOf x;
+    of = builtins.typeOf;
   };
 
   eval = {
@@ -623,7 +630,6 @@ rec {
 
   io = {
     inherit (builtins)
-      fetchClosure
       fetchGit
       fetchTarball
       getEnv
@@ -637,6 +643,8 @@ rec {
     fileHexSHA512 = builtins.hashFile "sha512";
     importFlake = builtins.getFlake;
     fetchURL = builtins.fetchurl;
+    fetchClosure = builtins.fetchClosure or
+      (_: throw "fetchClosure is missing, requires experimental feature `fetch-closure`");
   };
 
   path = {
