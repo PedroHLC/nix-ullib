@@ -134,6 +134,12 @@ rec {
     cons = x: xs: [ x ] ++ xs;
     push = x: xs: xs ++ [ x ];
 
+    last = xs:
+      let len = builtins.length xs;
+      in
+      if len > 1 then builtins.elemAt xs (len - 1)
+      else builtins.head xs;
+
     # op => (value: accu: newValue)
     foldl = op: init: prev:
       builtins.foldl'
@@ -186,19 +192,22 @@ rec {
 
     # taken from nixpkgs
     reverse = xs:
-      let len = length xs;
-      in builtins.genList
-        (n: builtins.elemAt xs (len - n - 1))
+      let
+        len = length xs;
+        tailIx = len - 1;
+      in
+      builtins.genList
+        (n: builtins.elemAt xs (tailIx - n))
         len;
 
     member = x: xs:
       let
         len = builtins.length xs;
-        quit = len - 1;
+        tailIx = len - 1;
         search = n:
           if builtins.elemAt xs n == x then
             true
-          else if n == quit then
+          else if n == tailIx then
             false
           else search (n + 1);
       in
@@ -273,6 +282,232 @@ rec {
     isEmpty = xs: xs == [ ];
 
     take = n: xs: builtins.genList (builtins.elemAt xs) n;
+    takeLast = n: xs:
+      let offset = builtins.length xs - n;
+      in
+      builtins.genList (i: builtins.elemAt xs (i + offset)) n;
     drop = n: xs: builtins.genList (i: builtins.elemAt xs (n + i)) (builtins.length xs - n);
+    dropLast = n: xs: builtins.genList (builtins.elemAt xs) (builtins.length xs - n);
+  };
+
+  # This deserves a UTF-8 refactor if something as https://github.com/figsoda/utf8 gets upstreamed
+  string = rec {
+    empty = "";
+    isEmpty = str: str == "";
+
+    length = str: builtins.stringLength str;
+
+    toList = str:
+      let len = builtins.stringLength str;
+      in
+      builtins.genList (n: builtins.substring n 1 str) len;
+    fromList = xs: builtins.concatStringsSep "" xs;
+
+    reverse = prev:
+      let
+        len = builtins.stringLength prev;
+        tailIx = len - 1;
+        newList = builtins.genList (n: builtins.substring (tailIx - n) 1 prev) len;
+      in
+      builtins.concatStringsSep "" newList;
+
+    repeat = n: x:
+      if n <= 0 then ""
+      else if n == 1 then x
+      else builtins.concatStringsSep "" (builtins.genList (_: x) n);
+
+    replace = from: to: prev: builtins.replaceStrings [ from ] [ to ] prev;
+    replaceMany = allFrom: allTo: prev: builtins.replaceStrings allFrom allTo prev;
+
+    append = new: prev: prev + new;
+    concat = xs: builtins.concatStringsSep "" xs;
+
+    # taken from nixpkgs
+    escape = list: builtins.replaceStrings list (builtins.map (c: "\\${c}") list);
+
+    split = pattern: str:
+      let
+        safePattern = escape ssot.regexSpecialCharacters pattern;
+        regexResult = builtins.split "(${safePattern})" str;
+      in
+      builtins.filter builtins.isString regexResult;
+
+    join = sep: xs: builtins.concatStringsSep sep xs;
+
+    words = str:
+      let
+        regexResult = builtins.split "([[:space:]]+)" str;
+      in
+      builtins.filter builtins.isString regexResult;
+
+    lines = str:
+      let
+        regexResult = builtins.split "(\r?\n)+" str;
+      in
+      builtins.filter builtins.isString regexResult;
+
+    slice = start: end: str:
+      let
+        len = builtins.stringLength str;
+        positiveStart = if start >= 0 then start else len + start;
+        positiveEnd = if end >= 0 then end else len + end;
+      in
+      if positiveEnd > positiveStart then
+        builtins.substring positiveStart (positiveEnd - positiveStart) str
+      else if positiveEnd == positiveStart then
+        ""
+      else # Reversed
+        let
+          len' = positiveStart - positiveEnd;
+          tailIx = positiveStart - 1;
+          newList = builtins.genList (n: builtins.substring (tailIx - n) 1 str) len';
+        in
+        builtins.concatStringsSep "" newList;
+
+    left = n: prev: builtins.substring 0 n prev;
+    right = n: prev:
+      let len = builtins.stringLength prev;
+      in
+      builtins.substring (len - n) n prev;
+
+    dropLeft = n: prev:
+      let len = builtins.stringLength prev;
+      in
+      builtins.substring n (len - n) prev;
+    dropRight = n: prev:
+      let len = builtins.stringLength prev;
+      in
+      builtins.substring 0 (len - n) prev;
+
+    contains = pattern: str:
+      let
+        safePattern = escape ssot.regexSpecialCharacters pattern;
+        regexResult = builtins.split "(${safePattern})" str;
+      in
+      builtins.length regexResult > 1;
+
+    startsWith = pattern: str:
+      builtins.substring 0 (builtins.stringLength pattern) str == pattern;
+
+    endsWith = pattern: str:
+      let
+        patternLength = builtins.stringLength pattern;
+        strLength = builtins.stringLength str;
+      in
+      builtins.substring (strLength - patternLength) patternLength str == pattern;
+
+    indexes = pattern: str:
+      let
+        patternLength = builtins.stringLength pattern;
+        safePattern = escape ssot.regexSpecialCharacters pattern;
+        regexResult = builtins.split "(${safePattern})" str;
+        searchResult =
+          builtins.foldl'
+            ({ count, indexes }: item:
+              if builtins.isString item then
+                { count = count + builtins.stringLength item; inherit indexes; }
+              else
+                { count = count + patternLength; indexes = indexes ++ [ count ]; }
+            )
+            { count = 0; indexes = [ ]; }
+            regexResult;
+      in
+      searchResult.indexes;
+
+    toInt = str:
+      let
+        primitive = builtins.fromJSON str;
+      in
+      if builtins.isInt primitive then primitive
+      else throw "${str} is not an integer.";
+
+    fromInt = primitive:
+      if builtins.isInt primitive then builtins.toJSON primitive
+      else throw "${builtins.typeOf primitive} is not an integer.";
+
+    toFloat = str:
+      let
+        primitive = builtins.fromJSON str;
+      in
+      if builtins.isFloat primitive || builtins.isInt primitive then primitive
+      else throw "${str} is not a float.";
+
+    fromFloat = primitive:
+      if builtins.isFloat primitive then builtins.toJSON primitive
+      else throw "${builtins.typeOf primitive} is not a float.";
+
+    toUpper = prev: builtins.replaceStrings ssot.asciiLowerChars ssot.asciiUpperChars prev;
+    toLower = prev: builtins.replaceStrings ssot.asciiUpperChars ssot.asciiLowerChars prev;
+
+    padLeft = n: filler: prev:
+      let len = builtins.stringLength prev;
+      in
+      if builtins.stringLength filler != 1 then
+        throw "Invalid filler, wrong number of characters, should have one."
+      else if len < n then repeat (n - len) filler + prev
+      else prev;
+
+    padRight = n: filler: prev:
+      let len = builtins.stringLength prev;
+      in
+      if builtins.stringLength filler != 1 then
+        throw "Invalid filler, wrong number of characters, should have one."
+      else if len < n then prev + repeat (n - len) filler
+      else prev;
+
+    trimLeft = prev:
+      let
+        regexResult = builtins.split "([[:space:]]+)" prev;
+        firstGroup = builtins.elemAt regexResult 1;
+      in
+      if builtins.length regexResult > 1 &&
+        builtins.head regexResult == "" &&
+        builtins.isList firstGroup then
+        dropLeft (builtins.stringLength (builtins.head firstGroup)) prev
+      else prev;
+
+    trimRight = prev:
+      let
+        regexResult = builtins.split "([[:space:]]+)" prev;
+        resultNum = builtins.length regexResult;
+        lastGroup = builtins.elemAt regexResult (resultNum - 2);
+      in
+      if resultNum > 1 &&
+        list.last regexResult == "" &&
+        builtins.isList lastGroup then
+        dropRight (builtins.stringLength (builtins.head lastGroup)) prev
+      else prev;
+
+    trim = prev:
+      let
+        regexResult = builtins.split "([[:space:]]+)" prev;
+        resultNum = builtins.length regexResult;
+        firstGroup = builtins.elemAt regexResult 1;
+        lastGroup = builtins.elemAt regexResult (resultNum - 2);
+
+        toDropLeft =
+          if resultNum > 1 &&
+            builtins.head regexResult == "" &&
+            builtins.isList firstGroup then
+            builtins.stringLength (builtins.head firstGroup)
+          else 0;
+
+        toDropRight =
+          if resultNum > 1 &&
+            list.last regexResult == "" &&
+            builtins.isList lastGroup then
+            builtins.stringLength (builtins.head lastGroup)
+          else 0;
+      in
+      builtins.substring toDropLeft
+        (builtins.stringLength prev - toDropLeft - toDropRight)
+        prev;
+  };
+
+  ssot = {
+    # taken from nixpkgs
+    regexSpecialCharacters = string.toList "\\[{()^$?*+|.";
+    asciiLowerChars = string.toList "abcdefghijklmnopqrstuvwxyz";
+    asciiUpperChars = string.toList "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   };
 }
