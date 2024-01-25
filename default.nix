@@ -626,6 +626,7 @@ rec {
       fetchClosure
       fetchGit
       fetchTarball
+      getEnv
       readDir
       readFile
       import
@@ -635,7 +636,6 @@ rec {
     fileHexSHA256 = builtins.hashFile "sha256";
     fileHexSHA512 = builtins.hashFile "sha512";
     importFlake = builtins.getFlake;
-    getEnv = builtins.getEnv;
     fetchURL = builtins.fetchurl;
   };
 
