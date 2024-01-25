@@ -269,19 +269,7 @@ rec {
         (n: builtins.elemAt xs (tailIx - n))
         len;
 
-    member = x: xs:
-      let
-        len = builtins.length xs;
-        tailIx = len - 1;
-        search = n:
-          if builtins.elemAt xs n == x then
-            true
-          else if n == tailIx then
-            false
-          else search (n + 1);
-      in
-      if len == 0 then false
-      else search 0;
+    member = x: xs: builtins.elem x xs;
 
     maximum = xs:
       if xs == [ ] then null
@@ -578,5 +566,10 @@ rec {
     regexSpecialCharacters = string.toList "\\[{()^$?*+|.";
     asciiLowerChars = string.toList "abcdefghijklmnopqrstuvwxyz";
     asciiUpperChars = string.toList "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  };
+
+  type = {
+    inherit (builtins) isAttrs isBool isFloat isFunction isInt isNull isList isPath isString;
+    of = x: builtins.typeOf x;
   };
 }
