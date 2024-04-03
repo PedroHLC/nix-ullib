@@ -1,20 +1,30 @@
 rec {
-  "+" = builtins.add;
-  "-" = builtins.sub;
-  "*" = builtins.mul;
-  "/" = builtins.div;
-  "^" = _: _: throw "Exponential is missing in Nix";
+  infixOp = {
+    "+" = builtins.add;
+    "-" = builtins.sub;
+    "*" = builtins.mul;
+    "/" = builtins.div;
+    "^" = _: _: throw "Exponential is missing in Nix";
 
-  "==" = a: b: a == b;
-  "!=" = a: b: a != b;
-  ">" = a: b: a > b;
-  "<" = builtins.lessThan;
-  ">=" = a: b: a >= b;
-  "<=" = a: b: a <= b;
+    "==" = a: b: a == b;
+    "!=" = a: b: a != b;
+    ">" = a: b: a > b;
+    "<" = builtins.lessThan;
+    ">=" = a: b: a >= b;
+    "<=" = a: b: a <= b;
 
-  "!" = x: !x;
-  "&&" = a: b: a && b;
-  "||" = a: b: a || b;
+    "!" = x: !x;
+    "&&" = a: b: a && b;
+    "||" = a: b: a || b;
+
+    "<|" = fn: a: fn a;
+    "|>" = a: fn: fn a;
+    "<<" = fnB: fnA: a:
+      fnB (fnA a);
+    ">>" = fnA: fnB: a:
+      fnB (fnA a);
+  };
+
   xor = a: b: a != b && (a || b);
 
   max = a: b: if b > a then b else a;
@@ -33,13 +43,6 @@ rec {
 
   identity = x: x;
   always = x: _: x;
-
-  "<|" = fn: a: fn a;
-  "|>" = a: fn: fn a;
-  "<<" = fnB: fnA: a:
-    fnB (fnA a);
-  ">>" = fnA: fnB: a:
-    fnB (fnA a);
 
   math = rec {
     inherit (builtins) floor;
@@ -202,7 +205,7 @@ rec {
     get' = builtins.elemAt;
 
     fromIndex = builtins.genList;
-    fromClosure = builtins.genList;
+    fromClosure = builtins.genericClosure;
 
     inherit (builtins) all any concatMap filter head length map partition tail;
 
